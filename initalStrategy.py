@@ -44,7 +44,9 @@ class initialStrategy:
             clean_data = data.dropna()
             clean_data.index.name = 'date'
             clean_data.reset_index(inplace=True)
+            clean_data.insert(loc=len(clean_data.columns), column='next_open', value=clean_data['open'].shift(-1))
             clean_portfolio[tckr] = clean_data
+
         return clean_portfolio
 
     def add_indicators(self):
@@ -92,42 +94,32 @@ class initialStrategy:
             # 0 means no open position, 1 long open, -1 short open
             open_pos = 0
             prep_buy_date = None
-            # p represents when to open positions, close represents when to close positions
-            p = np.zeros(len(self.portfolio[tckr]))
-            close = np.zeros(len(p))
+            # open_signal represents when to open positions, close represents when to close positions
+            open_signal = np.zeros(len(self.portfolio[tckr]))
+            close = np.zeros(len(open_signal))
             for index, row in self.portfolio[tckr].iterrows():
-                # If there is no open position
-                if open_pos == 0:
-                    # If there is a squeeze prepare to buy
-                    if row['BandWidth'] < row['BandWidth Low']*1.1:
-                        prep_buy_date = row['date']
-                    ## These are the two buy conditions
-                    # Open short if recently had a squeeze and now there is a touching of the  lower band
-                    if prep_buy_date is not None:
-                        if calc_diff(starting=prep_buy_date, ending=row['date'], type='days') <= self.prep_buy_window \
-                                and row['perc_b'] < 0:
-                            p[index] = -1
-                            open_pos = -1
-                        # Open long if recently had a squeeze and now there is a touching of the  lower band
-                        elif calc_diff(starting=prep_buy_date, ending=row['date'], type='days') <= self.prep_buy_window \
-                                and row['perc_b'] > 1:
-                            p[index] = 1
-                            open_pos = 1
-                else:
-                    # Now we are determining the close conditions as here there is an open_pos
-                    # The close condition is close when bandwidth balloons to suggest end of trend.
-                    if row['BandWidth'] > 0.8*row['BandWidth High']:
-                        # If we are long
-                        if open_pos == 1:
-                            # Close long
-                            close[index] = 1
-                            open_pos = 0
-                        elif open_pos == -1:
-                            close[index] = -1
-                            open_pos = 0
+                # If there is no open positio
+                # If there is a squeeze prepare to buy
+                if row['BandWidth'] < row['BandWidth Low']*1.1:
+                    prep_buy_date = row['date']
+                ## These are the two buy conditions
+                # Open short if recently had a squeeze and now there is a touching of the  lower band
+                if prep_buy_date is not None:
+                    if calc_diff(starting=prep_buy_date, ending=row['date'], type='days') <= self.prep_buy_window \
+                            and row['perc_b'] < 0:
+                        open_signal[index] = -1
+                    # Open long if recently had a squeeze and now there is a touching of the  lower band
+                    elif calc_diff(starting=prep_buy_date, ending=row['date'], type='days') <= self.prep_buy_window \
+                            and row['perc_b'] > 1:
+                        open_signal[index] = 1
+                # Now we are determining the close conditions as here there is an open_pos
+                # The close condition is close when bandwidth balloons to suggest end of trend.
+                if row['BandWidth'] > 0.8*row['BandWidth High']:
+                    # -1 means close a short, 1 means close a long, 2 means close any open position
+                    close[index] = 2
 
-            data.insert(loc=len(data.columns), column='p', value=p)
-            data.insert(loc=len(data.columns), column='close_pos', value=close)
+            data.insert(loc=len(data.columns), column='open_signal', value=open_signal)
+            data.insert(loc=len(data.columns), column='close_signal', value=close)
         return self.portfolio
 
 if __name__=='__main__':

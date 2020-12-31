@@ -14,31 +14,66 @@ class Backtester:
         # Not a huge fan of this.
         # Returns the portfolio with the signals columns
         self.portfolio = self.strat.generate_signals()
-        self.trans_df = self._get_transactions()
-        self.rets_df = self._get_returns()
-        self.cum_returns = sum(self.rets_df['return'])
+        self.beta = None
+        self.open_pos = None
+        self.entry_price = None
+        self.entry_date = None
+        self.close_price = None
+        self.rets_df = pd.DataFrame(columns=['symbol', 'entry_date', 'close_date', 'days_held', 'direction',
+                                             'entry_price', 'close_price', 'return'])
+        self.trans_df = pd.DataFrame(columns=['symbol', 'date', 'direction', 'close', 'price'])
+        self.backtest()
         self.losers = self._get_ends(best=False)
         self.winners = self._get_ends(best=True)
+        self.total_returns = sum(self.rets_df['return'])
 
+    def _reset_vars(self):
+        self.entry_price = None
+        self.entry_date = None
+        self.close_price = None
+        self.open_pos = None
 
-    def _get_transactions(self):
-        trans_df = pd.DataFrame(columns=['symbol', 'date', 'close', 'next_open', 'p', 'close_pos'])
+    def _open_pos(self, tckr, row):
+        direction = row['open_signal']
+        self.open_pos = direction
+        self.entry_date = row['date']
+        self.entry_price = row['next_open']
+        self.trans_df = self.trans_df.append(
+            {'symbol': tckr, 'date': self.entry_date, 'direction': direction, 'close': 0, 'price': self.entry_price},
+            ignore_index=True)
+
+    def _close_pos(self, tckr, row):
+        close_date = row['date']
+        close_price = row['next_open']
+        returns = (close_price / self.entry_price - 1) * self.open_pos
+        days_held = calc_diff(self.entry_date, close_date, type='days')
+        self.trans_df = self.trans_df.append(
+            {'symbol': tckr, 'date': close_date, 'direction': self.open_pos, 'close': 1, 'price': close_price},
+            ignore_index=True)
+        self.rets_df = self.rets_df.append({'symbol': tckr, 'entry_date': self.entry_date, 'close_date': close_date,
+                                            'days_held': days_held, 'direction': self.open_pos,
+                                            'entry_price': self.entry_price, 'close_price': close_price,
+                                            'return': returns}, ignore_index=True)
+        # reset Variables
+        self._reset_vars()
+
+    def backtest(self):
         for tckr, data in self.portfolio.items():
-            data.insert(loc=len(data.columns), column='next_open', value=data['open'].shift(-1))
-            transaction = data[(data['p'] != 0) | (data['close_pos'] != 0)]
-            trans_df = pd.concat([trans_df, transaction[['close', 'date', 'next_open', 'p', 'close_pos']]], axis=0, ignore_index=True)
-            trans_df['symbol'].fillna(value=tckr, inplace=True)
-        return trans_df
+            for index, row in self.portfolio[tckr].iterrows():
+                # If no position is open
+                if self.open_pos is None:
+                    if row['open_signal'] != 0:
+                        self._open_pos(tckr=tckr, row=row)
+                elif self.open_pos == 1:
+                    if row['close_signal'] == 1 or row['close_signal'] == 2:
+                        self._close_pos(tckr=tckr, row=row)
+                elif self.open_pos == -1:
+                    if row['close_signal'] == -1 or row['close_signal'] == 2:
+                        self._close_pos(tckr=tckr, row=row)
+            if self.open_pos is not None:
+                print("Position is still open")
+                self._reset_vars()
 
-    def _get_returns(self):
-        rets = self.trans_df
-        rets['entry'] = rets['next_open'].shift(1)
-        rets['entry_date'] = rets['date'].shift(1).astype(str)
-        rets['date'] = rets['date'].astype(str)
-        rets['return'] = (rets['next_open']/rets['entry'] - 1)*rets['close_pos']
-        rets['pos_length'] = rets.apply(lambda x: calc_diff(x['entry_date'], x['date'], type='days'), axis=1)
-        rets = rets[rets['close_pos'] != 0]
-        return rets
 
     def _get_ends(self, best=True):
         if best is True:
@@ -55,9 +90,9 @@ class Backtester:
         stock_trans = self.trans_df[self.trans_df['symbol'] == tckr]
         if 'date' in stock_trans.columns:
             stock_trans.index = pd.to_datetime(stock_trans['date'])
-        longs = stock_trans[stock_trans['p'] == 1]['next_open']
-        shorts = stock_trans[stock_trans['p'] == -1]['next_open']
-        close = stock_trans[stock_trans['close_pos'] != 0]['next_open']
+        longs = stock_trans[(stock_trans['direction'] == 1) & (stock_trans['close'] == 0)]['price'].rename('price_longs')
+        shorts = stock_trans[(stock_trans['direction'] == -1) & (stock_trans['close'] == 0)]['price'].rename('price_shorts')
+        close = stock_trans[stock_trans['close'] != 0]['price'].rename('price_close')
 
         ap = [mpf.make_addplot(stock['Bollinger High'], color='b'), mpf.make_addplot(stock['Bollinger Low'], color='b'),
               mpf.make_addplot(stock['ma'], color='g'),
@@ -72,13 +107,13 @@ class Backtester:
 
         if len(longs) != 0:
             stock = stock.merge(longs, how='left', left_index=True, right_index=True, suffixes=('', '_longs'))
-            ap.append(mpf.make_addplot(stock['next_open_longs'], type='scatter', marker='^', color='g', markersize=100))
+            ap.append(mpf.make_addplot(stock['price_longs'], type='scatter', marker='^', color='g', markersize=100))
         if len(shorts) != 0:
             stock = stock.merge(shorts, how='left', left_index=True, right_index=True, suffixes=('', '_shorts'))
-            ap.append(mpf.make_addplot(stock['next_open_shorts'], type='scatter', marker='v', color='g', markersize=100))
+            ap.append(mpf.make_addplot(stock['price_shorts'], type='scatter', marker='v', color='g', markersize=100))
         if len(close) != 0:
             stock = stock.merge(close, how='left', left_index=True, right_index=True, suffixes=('', '_close'))
-            ap.append(mpf.make_addplot(stock['next_open_close'], type='scatter', marker='^', color='r', markersize=100))
+            ap.append(mpf.make_addplot(stock['price_close'], type='scatter', marker='^', color='r', markersize=100))
         mpf.plot(stock, type='candle', addplot=ap, title=tckr)
         plt.show()
 
@@ -88,5 +123,6 @@ if __name__ == '__main__':
     data = dm.getOneSector(sector="Energy", fromDate="2016-06-01", toDate="2018-06-01")
     params = {'window': 20}
     bt = Backtester(data, initialStrategy, params=params)
-    print(bt.cum_returns)
+    # bt.plot_tckr('APA')
+    print(bt.total_returns)
     _ = 1
