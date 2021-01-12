@@ -1,43 +1,60 @@
-from initalStrategy import initialStrategy
-from DataManager import DataManager
 from utils import *
 import numpy as np
 import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
+from DataManager import DataManager
 
 
 class Analyzer:
-    def __init__(self, portfolio):
-        self.portfolio = portfolio
-
-        # Not a huge fan of this.
-        # Returns the portfolio with the signals columns
-        self.rets_df = pd.DataFrame(columns=['symbol', 'entry_date', 'close_date', 'days_held', 'direction',
-                                             'entry_price', 'close_price', 'return'])
-        self.trans_df = pd.DataFrame(columns=['symbol', 'date', 'direction', 'close', 'price'])
+    """
+    This class is used to analyze the strategy.
+    """
+    def __init__(self, strat):
+        """
+        strat must be an instance of the strategy class. See bringAllTogether.py.
+        """
+        self.strat = strat
+        # Runs the strategy, creates all the signals and the trades
+        self.strat.run()
         self.losers = None
         self.winners = None
-        self.total_returns = None
+        self.total_returns = self.get_returns()
 
     def get_returns(self):
-        self.total_returns = np.sum(self.rets_df['return'])
+        """
+        Simply calculate the returns
+        """
+        self.total_returns = np.sum(self.strat.rets_df['return'])
+        return self.total_returns
 
     def get_losers_winners(self):
+        """
+        Sets the 5 biggest losing trades and the 5 biggest winning trades
+        """
         self.losers = self._get_ends(best=False)
         self.winners = self._get_ends(best=True)
 
     def get_sharpe(self):
+        """
+        Eventually will calculate the sharpe ratio of the strategy
+        """
         print("Not implemented yet")
 
     def _get_ends(self, best=True):
+        """
+        Private member used in the get_losers_winners function
+        """
         if best is True:
-            end = self.rets_df[self.rets_df['return'] > 0].sort_values(by='return', ascending=False)
+            end = self.strat.rets_df[self.strat.rets_df['return'] > 0].sort_values(by='return', ascending=False)
         else:
-            end = self.rets_df[self.rets_df['return'] < 0].sort_values(by='return', ascending=True)
+            end = self.strat.rets_df[self.strat.rets_df['return'] < 0].sort_values(by='return', ascending=True)
         return end
 
     def analyze(self):
+        """
+        The big function of this class, run this to get a deep analyse, with option to plot different symbols
+        """
         self.get_returns()
         self.get_losers_winners()
         print("\n\n")
@@ -58,18 +75,18 @@ class Analyzer:
             elif request == 'e':
                 break
             elif request == 'l':
-                print(self.portfolio.keys())
-            elif request in list(self.portfolio.keys()):
+                print(self.strat.portfolio.keys())
+            elif request in list(self.strat.portfolio.keys()):
                 self.plot_tckr(request)
             else:
                 print("Sorry, did not recognise this request")
 
     def plot_tckr(self, tckr='APA'):
-        stock = self.portfolio[tckr]
+        stock = self.strat.portfolio[tckr]
         if 'date' in stock.columns:
             stock.index = pd.to_datetime(stock['date'])
             del stock['date']
-        stock_trans = self.trans_df[self.trans_df['symbol'] == tckr]
+        stock_trans = self.strat.trans_df[self.strat.trans_df['symbol'] == tckr]
         if 'date' in stock_trans.columns:
             stock_trans.index = pd.to_datetime(stock_trans['date'])
         longs = stock_trans[(stock_trans['direction'] == 1) & (stock_trans['close'] == 0)]['price'].rename('price_longs')
@@ -98,4 +115,18 @@ class Analyzer:
             ap.append(mpf.make_addplot(stock['price_close'], type='scatter', marker='^', color='r', markersize=100))
         mpf.plot(stock, type='candle', addplot=ap, title=tckr)
         plt.show()
+
+    def plot_returns(self):
+        """
+        Still in production, not completed.
+        """
+        sorted_rets = self.strat.rets_df.sort_values(by='close_date')
+        sorted_rets.index = pd.to_datetime(sorted_rets['close_date'])
+        del sorted_rets['close_date']
+        sorted_rets['rel_rets'] = 1 + sorted_rets['return']
+        plt.plot(sorted_rets['rel_rets'].cumprod())
+        plt.show()
+
+
+
 
