@@ -1,0 +1,73 @@
+alphavantage==0.0.11
+attrs==20.3.0
+autobahn==20.12.3
+Automat==20.2.0
+backtrader==1.9.76.123
+beautifulsoup4==4.9.1
+brotlipy==0.7.0
+certifi==2020.6.20
+cffi @ file:///C:/ci/cffi_1598352710791/work
+chardet==3.0.4
+constantly==15.1.0
+cryptography @ file:///C:/ci/cryptography_1598892079907/work
+cycler==0.10.0
+dateparser==1.0.0
+filterpy==1.4.5
+foil==0.2.7
+hyperlink==20.0.1
+ibapi==9.76.1
+idna @ file:///tmp/build/80754af9/idna_1593446292537/work
+incremental==17.5.0
+investpy==1.0
+iso8601==0.1.13
+joblib==0.16.0
+kiwisolver==1.2.0
+llvmlite==0.35.0
+lxml==4.5.2
+matplotlib==3.3.1
+mkl-fft==1.1.0
+mkl-random==1.1.1
+mkl-service==2.3.0
+mpl-finance==0.10.1
+mplfinance==0.12.7a0
+multitasking==0.0.9
+numba==0.52.0
+numpy @ file:///C:/ci/numpy_and_numpy_base_1596215850360/work
+pandas==1.0.1
+pandas-datareader==0.9.0
+patsy==0.5.1
+Pillow==7.2.0
+pyasn1==0.4.8
+pyasn1-modules==0.2.8
+pycparser @ file:///tmp/build/80754af9/pycparser_1594388511720/work
+PyHamcrest==2.0.2
+pyOpenSSL @ file:///tmp/build/80754af9/pyopenssl_1594392929924/work
+pyparsing==2.4.7
+PySocks==1.7.1
+python-binance==0.7.9
+python-dateutil==2.8.1
+pytz==2020.1
+PyYAML==5.3.1
+regex==2020.11.13
+requests @ file:///tmp/build/80754af9/requests_1592841827918/work
+scikit-learn==0.23.2
+scipy==1.5.2
+service-identity==18.1.0
+simfin==0.8.1
+sip==4.19.13
+six==1.15.0
+soupsieve==2.0.1
+statsmodels==0.12.0
+threadpoolctl==2.1.0
+tornado==6.0.4
+Twisted==20.3.0
+txaio==20.12.1
+tzlocal==2.1
+ujson==4.0.1
+Unidecode==1.1.1
+urllib3 @ file:///tmp/build/80754af9/urllib3_1597086586889/work
+wikipedia==1.4.0
+win-inet-pton==1.1.0
+wincertstore==0.2
+yfinance==0.1.54
+zope.interface==5.2.0
